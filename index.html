@@ -4,7 +4,19 @@
   <title>Leaflet with GeoJSON</title>
   <meta charset="utf-8" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <style>#map { height: 100vh; }</style>
+  <style>
+    #map { height: 100vh; }
+    .north-arrow {
+      background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"><path d="M16 4 L16 28 M16 4 L12 8 M16 4 L20 8" stroke="black" stroke-width="2" fill="none"/><text x="16" y="20" text-anchor="middle" font-size="10">N</text></svg>') no-repeat;
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+    }
+    .basemap-selector {
+      background: white;
+      padding: 5px;
+    }
+  </style>
 </head>
 <body>
   <div id="map"></div>
@@ -12,15 +24,75 @@
   <script>
     var map = L.map('map').setView([27.7, 85.3], 8);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    // Define base maps
+    var baseMaps = {
+      "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }),
+      "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+      }),
+      "Topographic": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community'
+      })
+    };
 
+    // Add default base map
+    baseMaps["OpenStreetMap"].addTo(map);
+
+    // Custom style for GeoJSON (black color)
+    var geojsonStyle = {
+      "color": "#000000",  // Black color
+      "weight": 1,         // Line thickness
+      "opacity": 1,        // Line opacity
+      "fillOpacity": 0.2   // Fill opacity (if polygons)
+    };
+
+    // Add GeoJSON layer with custom style
     fetch('https://raw.githubusercontent.com/suwas91/Nepal-Data/main/GapaNapa_geojson_simlified.geojson')
       .then(response => response.json())
       .then(data => {
-        L.geoJSON(data).addTo(map);
+        L.geoJSON(data, {
+          style: geojsonStyle  // Apply the custom style
+        }).addTo(map);
       });
+
+    // Add north arrow
+    var northArrow = L.control({position: 'bottomleft'});
+    northArrow.onAdd = function(map) {
+      var div = L.DomUtil.create('div', 'north-arrow');
+      div.title = 'Reset to North';
+      L.DomEvent.on(div, 'click', function() {
+        map.setBearing(0);
+      });
+      return div;
+    };
+    northArrow.addTo(map);
+
+    // Add base map selector
+    var baseMapControl = L.control({position: 'topright'});
+    baseMapControl.onAdd = function(map) {
+      var div = L.DomUtil.create('div', 'basemap-selector');
+      div.innerHTML = '<h4>Base Maps</h4>';
+      
+      var select = L.DomUtil.create('select');
+      for (var key in baseMaps) {
+        var option = L.DomUtil.create('option', '', select);
+        option.value = key;
+        option.innerHTML = key;
+      }
+      
+      L.DomEvent.on(select, 'change', function() {
+        for (var key in baseMaps) {
+          map.removeLayer(baseMaps[key]);
+        }
+        baseMaps[this.value].addTo(map);
+      });
+      
+      div.appendChild(select);
+      return div;
+    };
+    baseMapControl.addTo(map);
   </script>
 </body>
 </html>
